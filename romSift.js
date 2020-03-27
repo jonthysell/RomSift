@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Copyright (c) 2020 Jon Thysell
  *
@@ -7,4 +5,4 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-require('./romSift');
+console.log("Hello World!")
