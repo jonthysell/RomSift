@@ -1,0 +1,11 @@
+{
+  "name": "rom-sift",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "Jon Thysell <thysell@gmail.com>",
+  "license": "MIT",
+  "bin": {
+    "rom-sift": "./index.js"
+  }
+}
