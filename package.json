@@ -1,11 +1,15 @@
 {
-  "name": "rom-sift",
-  "version": "1.0.0",
+  "name": "romsift",
+  "version": "0.9.0",
   "description": "",
   "keywords": [],
   "author": "Jon Thysell <thysell@gmail.com>",
   "license": "MIT",
   "bin": {
-    "rom-sift": "./index.js"
+    "romsift": "./index.js"
+  },
+  "dependencies": {
+    "commander": "^5.0.0",
+    "readline-sync": "^1.4.10"
   }
 }

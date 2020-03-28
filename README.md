@@ -1,6 +1,6 @@
-# rom-sift #
+# romsift #
 
-rom-sift is utility for sifting through large ROM collections.
+romsift is utility for sifting through large ROM collections.
 
 TEGS is open-source under the MIT license.
 
