@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 
+const chalk = require('chalk');
 const commander = require('commander');
 const readlineSync = require('readline-sync');
 
@@ -21,16 +22,18 @@ const program = new commander.Command(packageJson.name)
 program.command('sift <rom-directory>')
     .description('sift through files to remove duplicates')
     .option("--interactive", "prompt the user for which files to keep", false)
+    .option("-n, --noop", "only preview file changes, don't actually sift", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
-        romSift(dir, cmdObj.interactive);
+        romSift(dir, cmdObj.interactive, cmdObj.noop);
     });
     
 program.command('clean <rom-directory>')
-    .description('remove unecessary tags from files')
+    .description('remove unecessary tags from file names')
+    .option("-n, --noop", "only preview file changes, don't actually clean", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
-        romClean(dir);
+        romClean(dir, cmdObj.noop);
     });
 
 program.parse(process.argv);
@@ -82,19 +85,19 @@ function scanDir(dir)
     var count = 0;
     filenames.forEach(filename => {
         var fileEntry = createFileEntry(filename);
-        console.log(`Found ${fileEntry.filename}.`);
+        console.log(`Found ${chalk.bold(fileEntry.filename)}.`);
 
         if (!fileMap.hasOwnProperty(fileEntry.title)) {
             fileMap[fileEntry.title] = [];
+            count++;
         }
 
         fileMap[fileEntry.title].push(fileEntry);
-        count++;
     });
 
     if (count > 0) {
         console.log();
-        console.log(`Found ${count} titles across ${filenames.length} files.`);
+        console.log(`Found ${chalk.bold(count)} titles across ${chalk.bold(filenames.length)} files.`);
     }
 
     return fileMap;
@@ -115,7 +118,7 @@ function promptForFilesToKeep(title, fileEntries) {
     return [];
 }
 
-function romSift(romDirectory, interactive) {
+function romSift(romDirectory, interactive, noop) {
     var fileMap = scanDir(romDirectory);
 
     var titles = Object.keys(fileMap);
@@ -127,15 +130,53 @@ function romSift(romDirectory, interactive) {
 
     pauseForEnter(interactive);
 
+    var totalCount = 0;
     titles.forEach(title => {
         var fileEntries = fileMap[title];
+        totalCount += fileEntries.length;
 
         var filesToKeep = interactive ? promptForFilesToKeep(title, fileEntries) : defaultFilesToKeep(title, fileEntries);
 
     });
 }
 
-function romClean(romDirectory) {
+function tryRomRename(romDirectory, fileEntry, noop) {
+    var oldName = fileEntry.filename;
+
+    var newName = fileEntry.title;
+
+    fileEntry.tags.forEach(tag => {
+        newName += ` (${tag})`;
+    });
+
+    newName += fileEntry.extension;
+
+    if (oldName == newName) {
+        console.log(`${ noop ? 'Would s' : 'S' }kip ${chalk.bold(oldName)}...`);
+    } else {
+        console.log(`${ noop ? 'Would r' : 'R' }ename ${chalk.bold(oldName)} to ${chalk.bold(newName)}...`);
+        if (!noop) {
+            fs.renameSync(path.join(romDirectory, oldName), path.join(romDirectory, newName));
+        }
+        return true;
+    }
+    return false;
+}
+
+function getTagHistogram(fileEntries) {
+    var tagHist = {};
+    fileEntries.forEach(fileEntry => {
+        fileEntry.tags.forEach(tag => {
+            if (!tagHist.hasOwnProperty(tag)) {
+                tagHist[tag] = 0;
+            }
+            tagHist[tag]++;
+        });
+    });
+    return tagHist;
+}
+
+function romClean(romDirectory, noop) {
     var fileMap = scanDir(romDirectory);
 
     var titles = Object.keys(fileMap);
@@ -146,28 +187,47 @@ function romClean(romDirectory) {
     }
 
     console.log();
-    console.log('Cleaning files...');
+    console.log(`Clean files...`);
 
-    var count = 0;
+    var totalCount = 0;
+    var cleanCount = 0;
     titles.forEach(title => {
         var fileEntries = fileMap[title];
+        totalCount += fileEntries.length;
 
         if (fileEntries.length == 1) {
-            var oldName = fileEntries[0].filename;
-            var newName = fileEntries[0].title + fileEntries[0].extension;
-            if (oldName != newName) {
-                console.log(`Rename ${oldName} to ${newName}...`);
-                fs.renameSync(path.join(romDirectory, oldName), path.join(romDirectory, newName));
-                count++;
+            fileEntries[0].tags = [];
+            if (tryRomRename(romDirectory, fileEntries[0], noop)) {
+                cleanCount++;
             }
+        } else {
+            var tagHist = getTagHistogram(fileEntries);
+
+            Object.keys(tagHist).forEach(tag => {
+                if (tagHist[tag] >= fileEntries.length) {
+                    fileEntries.forEach(fileEntry => {
+                        var index = fileEntry.tags.indexOf(tag);
+                        while (index > -1) {
+                            fileEntry.tags.splice(index, 1);
+                            index = fileEntry.tags.indexOf(tag);
+                        }
+                    });
+                }
+            });
+
+            fileEntries.forEach(fileEntry => {
+                if (tryRomRename(romDirectory, fileEntry, noop)) {
+                    cleanCount++;
+                }
+            });
         }
     });
 
-    if (count == 0) {
-        console.log('No files to clean.');
+    if (cleanCount == 0) {
+        console.log(`No files to clean.`);
     } else {
         console.log();
-        console.log(`Cleaned ${count} files.`);
+        console.log(`${ noop ? 'Would have c' : 'C' }leaned ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
     }
 }
 
