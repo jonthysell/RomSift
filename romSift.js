@@ -21,7 +21,7 @@ const program = new commander.Command(packageJson.name)
 
 program.command('sift <rom-directory>')
     .description('sift through files to remove duplicates')
-    .option("--interactive", "prompt the user for which files to sift", false)
+    .option("-i, --interactive", "prompt the user for which files to sift", false)
     .option("-n, --noop", "only preview file changes, don't actually sift", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
@@ -33,7 +33,7 @@ program.command('sift <rom-directory>')
     
 program.command('clean <rom-directory>')
     .description('remove unecessary tags from file names')
-    .option("--interactive", "prompt the user for which files to clean", false)
+    .option("-i, --interactive", "prompt the user for which files to clean", false)
     .option("-n, --noop", "only preview file changes, don't actually clean", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
@@ -80,8 +80,7 @@ function createFileEntry(filename) {
     };
 }
 
-function scanDir(dir)
-{
+function scanDir(dir) {
     var fileMap = {};
 
     console.log(`Scanning ${dir}...`);
@@ -114,6 +113,30 @@ function pauseForEnter(interactive) {
     if (interactive) {
         console.log();
         readlineSync.question('Press enter to continue...');
+    }
+}
+
+function promptForConfirm(interactive, question, defaultResponse) {
+    const yesStrings = ['y', 'yes'];
+    const noStrings = ['n', 'no'];
+
+    var defaultStr = defaultResponse ? 'y' : 'n';
+    var response = defaultStr;
+
+    if (interactive) {
+        console.log();
+        
+        response = readlineSync.question(`${question} [${ defaultStr }] `);
+        response = response.trim().toLowerCase();
+        if (yesStrings.indexOf(response) < 0 && noStrings.indexOf(response) < 0) {
+            response = defaultStr;
+        }
+    }
+
+    if (yesStrings.indexOf(response) >= 0) {
+        return true;
+    } else if (noStrings.indexOf(response) >= 0) {
+        return false;
     }
 }
 
@@ -161,8 +184,11 @@ function tryRomRename(romDirectory, fileEntry, options) {
     if (oldName == newName) {
         console.log(`${ options.noop ? 'Would s' : 'S' }kip ${chalk.bold(oldName)}...`);
     } else {
-        console.log(`${ options.noop ? 'Would r' : 'R' }ename ${chalk.bold(oldName)} to ${chalk.bold(newName)}...`);
-        if (!options.noop) {
+        console.log(`${ options.interactive || options.noop ? 'Would r' : 'R' }ename ${chalk.bold(oldName)} to ${chalk.bold(newName)}...`);
+
+        var rename = promptForConfirm(options.interactive, 'Do you want to rename this file?', true);
+
+        if (rename && !options.noop) {
             fs.renameSync(path.join(romDirectory, oldName), path.join(romDirectory, newName));
         }
         return true;
@@ -239,4 +265,3 @@ function romClean(romDirectory, options) {
         console.log(`${ options.noop ? 'Would have c' : 'C' }leaned ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
     }
 }
-
