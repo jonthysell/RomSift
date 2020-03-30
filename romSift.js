@@ -23,11 +23,13 @@ program.command('sift <rom-directory>')
     .description('sift through files to remove duplicates')
     .option("-i, --interactive", "prompt the user for which files to sift", false)
     .option("-n, --noop", "only preview file changes, don't actually sift", false)
+    .option("-v, --verbose", "show verbose output", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
         romSift(dir, {
             interactive: cmdObj.interactive,
-            noop: cmdObj.noop
+            noop: cmdObj.noop,
+            verbose: cmdObj.verbose,
         });
     });
     
@@ -35,11 +37,13 @@ program.command('clean <rom-directory>')
     .description('remove unecessary tags from file names')
     .option("-i, --interactive", "prompt the user for which files to clean", false)
     .option("-n, --noop", "only preview file changes, don't actually clean", false)
+    .option("-v, --verbose", "show verbose output", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
         romClean(dir, {
             interactive: cmdObj.interactive,
-            noop: cmdObj.noop
+            noop: cmdObj.noop,
+            verbose: cmdObj.verbose,
         });
     });
 
@@ -47,14 +51,14 @@ program.parse(process.argv);
 
 function checkDir(dir) {
     if (!fs.existsSync(dir)) {
-        console.error(`error: directory ${dir} not found`)
+        console.error(`error: directory ${dir} not found`);
         process.exit(1);
     } else {
         try {
             fs.accessSync(dir);
         }
         catch {
-            console.error(`error: directory ${dir} cannot be accessed`)
+            console.error(`error: directory ${dir} cannot be accessed`);
             process.exit(1);
         }
     }
@@ -80,18 +84,20 @@ function createFileEntry(filename) {
     };
 }
 
-function scanDir(dir) {
+function scanDir(dir, options) {
     var fileMap = {};
 
     console.log(`Scanning ${dir}...`);
-    console.log();
 
     var filenames = fs.readdirSync(dir);
 
     var count = 0;
     filenames.forEach(filename => {
         var fileEntry = createFileEntry(filename);
-        console.log(`Found ${chalk.bold(fileEntry.filename)}.`);
+
+        if (options.verbose) {
+            console.log(`Found ${chalk.bold(fileEntry.filename)}.`);
+        }
 
         if (!fileMap.hasOwnProperty(fileEntry.title)) {
             fileMap[fileEntry.title] = [];
@@ -128,6 +134,7 @@ function promptForConfirm(interactive, question, defaultResponse) {
         
         response = readlineSync.question(`${question} [${ defaultStr }] `);
         response = response.trim().toLowerCase();
+
         if (yesStrings.indexOf(response) < 0 && noStrings.indexOf(response) < 0) {
             response = defaultStr;
         }
@@ -149,7 +156,7 @@ function promptForFilesToKeep(title, fileEntries) {
 }
 
 function romSift(romDirectory, options) {
-    var fileMap = scanDir(romDirectory);
+    var fileMap = scanDir(romDirectory, options);
 
     var titles = Object.keys(fileMap);
 
@@ -161,6 +168,7 @@ function romSift(romDirectory, options) {
     pauseForEnter(options.interactive);
 
     var totalCount = 0;
+
     titles.forEach(title => {
         var fileEntries = fileMap[title];
         totalCount += fileEntries.length;
@@ -170,9 +178,7 @@ function romSift(romDirectory, options) {
     });
 }
 
-function tryRomRename(romDirectory, fileEntry, options) {
-    var oldName = fileEntry.filename;
-
+function setCleanFileName(fileEntry) {
     var newName = fileEntry.title;
 
     fileEntry.tags.forEach(tag => {
@@ -181,19 +187,52 @@ function tryRomRename(romDirectory, fileEntry, options) {
 
     newName += fileEntry.extension;
 
-    if (oldName == newName) {
-        console.log(`${ options.noop ? 'Would s' : 'S' }kip ${chalk.bold(oldName)}...`);
+    fileEntry.cleanFilename = newName;
+}
+
+function getRomCleanOperation(romDirectory, fileEntry, options) {
+    setCleanFileName(fileEntry);
+    
+    if (fileEntry.filename == fileEntry.cleanFilename) {
+        if (options.verbose) {
+            console.log(`Would skip ${chalk.bold(fileEntry.filename)}...`);
+        }
     } else {
-        console.log(`${ options.interactive || options.noop ? 'Would r' : 'R' }ename ${chalk.bold(oldName)} to ${chalk.bold(newName)}...`);
+        if (options.verbose || options.interactive) {
+            console.log(`Would rename ${chalk.bold(fileEntry.filename)} to ${chalk.bold(fileEntry.cleanFilename)}...`);
+        }
 
         var rename = promptForConfirm(options.interactive, 'Do you want to rename this file?', true);
 
-        if (rename && !options.noop) {
-            fs.renameSync(path.join(romDirectory, oldName), path.join(romDirectory, newName));
+        if (rename) {
+            return {
+                clean: true,
+                callback: () => {
+                    if (options.verbose) {
+                        console.log(`Renaming ${chalk.bold(fileEntry.filename)} to ${chalk.bold(fileEntry.cleanFilename)}...`);
+                    }
+
+                    try {
+                        fs.renameSync(path.join(romDirectory, fileEntry.filename), path.join(romDirectory, fileEntry.cleanFilename));
+                        return true;
+                    } catch {
+                        console.error(`error: unable to rename ${fileEntry.filename}`);
+                    }
+                    return false;
+                }
+            };
         }
-        return true;
     }
-    return false;
+
+    return {
+        clean: false,
+        callback: () => {
+            if (options.verbose) {
+                console.log(`Skipping ${chalk.bold(fileEntry.filename)}...`);
+            }
+            return false;
+        }
+    };;
 }
 
 function getTagHistogram(fileEntries) {
@@ -210,31 +249,41 @@ function getTagHistogram(fileEntries) {
 }
 
 function romClean(romDirectory, options) {
-    var fileMap = scanDir(romDirectory);
+    var fileMap = scanDir(romDirectory, options);
 
     var titles = Object.keys(fileMap);
 
     if (titles.length == 0) {
-        console.log('No files to clean.');
+        console.log('No files to rename.');
         return;
     }
 
     pauseForEnter(options.interactive);
 
     console.log();
-    console.log(`Clean files...`);
+    console.log(`Evaluating files...`);
 
     var totalCount = 0;
     var cleanCount = 0;
+
+    var callbacks = [];
+
     titles.forEach(title => {
         var fileEntries = fileMap[title];
         totalCount += fileEntries.length;
 
         if (fileEntries.length == 1) {
-            fileEntries[0].tags = [];
-            if (tryRomRename(romDirectory, fileEntries[0], options)) {
+            var fileEntry = fileEntries[0];
+
+            fileEntry.tags = [];
+
+            var op = getRomCleanOperation(romDirectory, fileEntry, options);
+
+            if (op.clean) {
                 cleanCount++;
             }
+
+            callbacks.push(op.callback);
         } else {
             var tagHist = getTagHistogram(fileEntries);
 
@@ -251,17 +300,35 @@ function romClean(romDirectory, options) {
             });
 
             fileEntries.forEach(fileEntry => {
-                if (tryRomRename(romDirectory, fileEntry, options)) {
+                var op = getRomCleanOperation(romDirectory, fileEntry, options);
+
+                if (op.clean) {
                     cleanCount++;
                 }
+
+                callbacks.push(op.callback);
             });
         }
     });
 
-    if (cleanCount == 0) {
-        console.log(`No files to clean.`);
-    } else {
+    console.log();
+
+    if (options.noop) {
+        console.log(`Would rename ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
+    }
+    else {
+        console.log(`Ready to rename ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
+
+        pauseForEnter(options.interactive);
+
+        var renameCount = 0;
+        callbacks.forEach((cb) => {
+            if (cb()) {
+                renameCount++;
+            }
+        });
+
         console.log();
-        console.log(`${ options.noop ? 'Would have c' : 'C' }leaned ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
+        console.log(`Renamed ${chalk.bold(renameCount)} files.`);
     }
 }
