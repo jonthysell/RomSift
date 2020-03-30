@@ -21,19 +21,26 @@ const program = new commander.Command(packageJson.name)
 
 program.command('sift <rom-directory>')
     .description('sift through files to remove duplicates')
-    .option("--interactive", "prompt the user for which files to keep", false)
+    .option("--interactive", "prompt the user for which files to sift", false)
     .option("-n, --noop", "only preview file changes, don't actually sift", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
-        romSift(dir, cmdObj.interactive, cmdObj.noop);
+        romSift(dir, {
+            interactive: cmdObj.interactive,
+            noop: cmdObj.noop
+        });
     });
     
 program.command('clean <rom-directory>')
     .description('remove unecessary tags from file names')
+    .option("--interactive", "prompt the user for which files to clean", false)
     .option("-n, --noop", "only preview file changes, don't actually clean", false)
     .action((dir, cmdObj) => {
         checkDir(dir);
-        romClean(dir, cmdObj.noop);
+        romClean(dir, {
+            interactive: cmdObj.interactive,
+            noop: cmdObj.noop
+        });
     });
 
 program.parse(process.argv);
@@ -118,7 +125,7 @@ function promptForFilesToKeep(title, fileEntries) {
     return [];
 }
 
-function romSift(romDirectory, interactive, noop) {
+function romSift(romDirectory, options) {
     var fileMap = scanDir(romDirectory);
 
     var titles = Object.keys(fileMap);
@@ -128,7 +135,7 @@ function romSift(romDirectory, interactive, noop) {
         return;
     }
 
-    pauseForEnter(interactive);
+    pauseForEnter(options.interactive);
 
     var totalCount = 0;
     titles.forEach(title => {
@@ -140,7 +147,7 @@ function romSift(romDirectory, interactive, noop) {
     });
 }
 
-function tryRomRename(romDirectory, fileEntry, noop) {
+function tryRomRename(romDirectory, fileEntry, options) {
     var oldName = fileEntry.filename;
 
     var newName = fileEntry.title;
@@ -152,10 +159,10 @@ function tryRomRename(romDirectory, fileEntry, noop) {
     newName += fileEntry.extension;
 
     if (oldName == newName) {
-        console.log(`${ noop ? 'Would s' : 'S' }kip ${chalk.bold(oldName)}...`);
+        console.log(`${ options.noop ? 'Would s' : 'S' }kip ${chalk.bold(oldName)}...`);
     } else {
-        console.log(`${ noop ? 'Would r' : 'R' }ename ${chalk.bold(oldName)} to ${chalk.bold(newName)}...`);
-        if (!noop) {
+        console.log(`${ options.noop ? 'Would r' : 'R' }ename ${chalk.bold(oldName)} to ${chalk.bold(newName)}...`);
+        if (!options.noop) {
             fs.renameSync(path.join(romDirectory, oldName), path.join(romDirectory, newName));
         }
         return true;
@@ -176,7 +183,7 @@ function getTagHistogram(fileEntries) {
     return tagHist;
 }
 
-function romClean(romDirectory, noop) {
+function romClean(romDirectory, options) {
     var fileMap = scanDir(romDirectory);
 
     var titles = Object.keys(fileMap);
@@ -185,6 +192,8 @@ function romClean(romDirectory, noop) {
         console.log('No files to clean.');
         return;
     }
+
+    pauseForEnter(options.interactive);
 
     console.log();
     console.log(`Clean files...`);
@@ -197,7 +206,7 @@ function romClean(romDirectory, noop) {
 
         if (fileEntries.length == 1) {
             fileEntries[0].tags = [];
-            if (tryRomRename(romDirectory, fileEntries[0], noop)) {
+            if (tryRomRename(romDirectory, fileEntries[0], options)) {
                 cleanCount++;
             }
         } else {
@@ -216,7 +225,7 @@ function romClean(romDirectory, noop) {
             });
 
             fileEntries.forEach(fileEntry => {
-                if (tryRomRename(romDirectory, fileEntry, noop)) {
+                if (tryRomRename(romDirectory, fileEntry, options)) {
                     cleanCount++;
                 }
             });
@@ -227,7 +236,7 @@ function romClean(romDirectory, noop) {
         console.log(`No files to clean.`);
     } else {
         console.log();
-        console.log(`${ noop ? 'Would have c' : 'C' }leaned ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
+        console.log(`${ options.noop ? 'Would have c' : 'C' }leaned ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
     }
 }
 
