@@ -108,15 +108,18 @@ function scanDir(dir, options) {
     });
 
     if (count > 0) {
-        console.log();
-        console.log(`Found ${chalk.bold(count)} titles across ${chalk.bold(filenames.length)} files.`);
+        console.log(`Scan complete, found ${chalk.bold(count)} titles across ${chalk.bold(filenames.length)} files.`);
     }
 
     return fileMap;
 }
 
-function pauseForEnter(interactive) {
+function pauseForEnter(interactive, message) {
     if (interactive) {
+        if (message) {
+            console.log();
+            console.log(message);
+        }
         console.log();
         readlineSync.question('Press enter to continue...');
     }
@@ -165,7 +168,10 @@ function romSift(romDirectory, options) {
         return;
     }
 
-    pauseForEnter(options.interactive);
+    pauseForEnter(options.interactive, 'Ready to evaluate files.');
+
+    console.log();
+    console.log(`Evaluating files...`);
 
     var totalCount = 0;
 
@@ -258,7 +264,7 @@ function romClean(romDirectory, options) {
         return;
     }
 
-    pauseForEnter(options.interactive);
+    pauseForEnter(options.interactive, 'Ready to evaluate files.');
 
     console.log();
     console.log(`Evaluating files...`);
@@ -311,15 +317,17 @@ function romClean(romDirectory, options) {
         }
     });
 
-    console.log();
+    console.log(`Evaluation complete, would rename ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
 
     if (options.noop) {
-        console.log(`Would rename ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
+        console.log();
+        console.log(`Re-run without the -no-op flag to actually rename the files.`);
     }
     else {
-        console.log(`Ready to rename ${chalk.bold(cleanCount)} of ${chalk.bold(totalCount)} files.`);
+        pauseForEnter(options.interactive, 'Ready to rename files.');
 
-        pauseForEnter(options.interactive);
+        console.log();
+        console.log(`Renaming files...`);
 
         var renameCount = 0;
         callbacks.forEach((cb) => {
@@ -328,7 +336,6 @@ function romClean(romDirectory, options) {
             }
         });
 
-        console.log();
         console.log(`Renamed ${chalk.bold(renameCount)} files.`);
     }
 }
