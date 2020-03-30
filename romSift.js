@@ -125,6 +125,112 @@ function pauseForEnter(interactive, message) {
     }
 }
 
+function getRomSiftOperation(romDirectory, fileEntries, options) {
+    var romsToKeep = Array.from({length: fileEntries.length}, (x, i) => i);
+
+    if (options.interactive) {
+
+    }
+
+    var removeCount = 0;
+    fileEntries.forEach((fileEntry, i) => {
+        var keep = romsToKeep.indexOf(i) >= 0;
+
+        if (options.verbose) {
+            console.log(`Would ${ keep ? 'keep' : 'remove' } ${chalk.bold(fileEntry.filename)}...`);
+        }
+
+        fileEntry.keep = keep;
+        removeCount += fileEntry.keep ? 0 : 1;
+    });
+
+    return {
+        removeCount: removeCount,
+        callback: () => {
+            var count = 0;
+            fileEntries.forEach((fileEntry) => {
+                if (options.verbose) {
+                    console.log(`${ fileEntry.keep ? 'Keeping' : 'Removing' } ${chalk.bold(fileEntry.filename)}...`);
+                }
+
+                if (!fileEntry.keep) {
+                    try {
+                        fs.unlinkSync(path.join(romDirectory, fileEntry.filename));
+                        count++;
+                    } catch {
+                        console.error(`error: unable to remove ${fileEntry.filename}`);
+                    }
+                }
+            });
+            return count;
+        }
+    };
+}
+
+function romSift(romDirectory, options) {
+    var fileMap = scanDir(romDirectory, options);
+
+    var titles = Object.keys(fileMap);
+
+    if (titles.length == 0) {
+        console.log('No files to remove.');
+        return;
+    }
+
+    pauseForEnter(options.interactive, 'Ready to evaluate files.');
+
+    console.log();
+    console.log(`Evaluating files...`);
+
+    var totalCount = 0;
+    var removeCount = 0;
+
+    var callbacks = [];
+
+    titles.forEach(title => {
+        var fileEntries = fileMap[title];
+        totalCount += fileEntries.length;
+
+        var op = getRomSiftOperation(romDirectory, fileEntries, options);
+
+        removeCount += op.removeCount;
+
+        callbacks.push(op.callback);
+    });
+
+    console.log(`Evaluation complete, would remove ${chalk.bold(removeCount)} of ${chalk.bold(totalCount)} files.`);
+
+    if (options.noop) {
+        console.log();
+        console.log(`Re-run without the -no-op flag to actually remove files.`);
+    }
+    else {
+        pauseForEnter(options.interactive, 'Ready to remove files.');
+
+        console.log();
+        console.log(`Removing files...`);
+
+        var count = 0;
+        callbacks.forEach((cb) => {
+            count += cb();
+        });
+
+        console.log(`Removed ${chalk.bold(count)} files.`);
+    }
+}
+
+function setCleanFileName(fileEntry) {
+    var newName = fileEntry.title;
+
+    fileEntry.tags.forEach(tag => {
+        newName += ` (${tag})`;
+    });
+
+    newName += fileEntry.extension;
+
+    fileEntry.cleanFilename = newName;
+}
+
 function promptForConfirm(interactive, question, defaultResponse) {
     const yesStrings = ['y', 'yes'];
     const noStrings = ['n', 'no'];
@@ -148,52 +254,6 @@ function promptForConfirm(interactive, question, defaultResponse) {
     } else if (noStrings.indexOf(response) >= 0) {
         return false;
     }
-}
-
-function defaultFilesToKeep(title, fileEntries) {
-    return [];
-}
-
-function promptForFilesToKeep(title, fileEntries) {
-    return [];
-}
-
-function romSift(romDirectory, options) {
-    var fileMap = scanDir(romDirectory, options);
-
-    var titles = Object.keys(fileMap);
-
-    if (titles.length == 0) {
-        console.log('No files to sift.');
-        return;
-    }
-
-    pauseForEnter(options.interactive, 'Ready to evaluate files.');
-
-    console.log();
-    console.log(`Evaluating files...`);
-
-    var totalCount = 0;
-
-    titles.forEach(title => {
-        var fileEntries = fileMap[title];
-        totalCount += fileEntries.length;
-
-        var filesToKeep = interactive ? promptForFilesToKeep(title, fileEntries) : defaultFilesToKeep(title, fileEntries);
-
-    });
-}
-
-function setCleanFileName(fileEntry) {
-    var newName = fileEntry.title;
-
-    fileEntry.tags.forEach(tag => {
-        newName += ` (${tag})`;
-    });
-
-    newName += fileEntry.extension;
-
-    fileEntry.cleanFilename = newName;
 }
 
 function getRomCleanOperation(romDirectory, fileEntry, options) {
@@ -238,7 +298,7 @@ function getRomCleanOperation(romDirectory, fileEntry, options) {
             }
             return false;
         }
-    };;
+    };
 }
 
 function getTagHistogram(fileEntries) {
@@ -321,7 +381,7 @@ function romClean(romDirectory, options) {
 
     if (options.noop) {
         console.log();
-        console.log(`Re-run without the -no-op flag to actually rename the files.`);
+        console.log(`Re-run without the -no-op flag to actually rename files.`);
     }
     else {
         pauseForEnter(options.interactive, 'Ready to rename files.');
@@ -329,13 +389,13 @@ function romClean(romDirectory, options) {
         console.log();
         console.log(`Renaming files...`);
 
-        var renameCount = 0;
+        var count = 0;
         callbacks.forEach((cb) => {
             if (cb()) {
-                renameCount++;
+                count++;
             }
         });
 
-        console.log(`Renamed ${chalk.bold(renameCount)} files.`);
+        console.log(`Renamed ${chalk.bold(count)} files.`);
     }
 }
