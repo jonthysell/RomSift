@@ -2,7 +2,7 @@
 
 romsift is utility for sifting through large ROM collections.
 
-It is intended to help pare down large romsets (particularly [no-intro](https://www.no-intro.org/)]) to remove unwanted duplicates and make browsing the files easier.
+It is intended to help pare down large romsets (particularly [no-intro](https://www.no-intro.org/)) to remove unwanted duplicates and make browsing the files easier.
 
 It works by scanning a directory of files and grouping them by their title, ignoring any tags (text in parentheses).
 
