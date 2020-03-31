@@ -129,7 +129,35 @@ function getRomSiftOperation(romDirectory, fileEntries, options) {
     var romsToKeep = Array.from({length: fileEntries.length}, (x, i) => i);
 
     if (options.interactive) {
+        console.log();
+        console.log(`Select files for title ${chalk.bold(fileEntries[0].title)}:`);
 
+        fileEntries.forEach((fileEntry, i) => {
+            console.log(`${i+1}) ${chalk.bold(fileEntry.filename)}`);
+        });
+
+        var response = readlineSync.question(`Which files do you want to keep? [${ romsToKeep.map(i => i + 1).map(String).join(',') }] `);
+
+        var responseRomsToKeep = [];
+        var split = response.split(',');
+
+        var validResponse = false;
+        for (var i = 0; i < split.length; i++) {
+            var value = parseInt(split[i]);
+            if (!isNaN(value)) {
+                validResponse = true;
+                if (value == 0) {
+                    responseRomsToKeep = [];
+                    break;
+                } else {
+                    responseRomsToKeep.push(value - 1);
+                }
+            }
+        }
+
+        if (validResponse) {
+            romsToKeep = responseRomsToKeep;
+        }
     }
 
     var removeCount = 0;
