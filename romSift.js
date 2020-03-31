@@ -51,14 +51,17 @@ program.parse(process.argv);
 
 function checkDir(dir) {
     if (!fs.existsSync(dir)) {
-        console.error(`error: directory ${dir} not found`);
+        console.error(`error: ${chalk.bold(dir)} not found`);
+        process.exit(1);
+    } else if (!fs.lstatSync(dir).isDirectory()) {
+        console.error(`error: ${chalk.bold(dir)} is not a directory`);
         process.exit(1);
     } else {
         try {
             fs.accessSync(dir);
         }
         catch {
-            console.error(`error: directory ${dir} cannot be accessed`);
+            console.error(`error: ${chalk.bold(dir)} cannot be accessed`);
             process.exit(1);
         }
     }
@@ -87,24 +90,26 @@ function createFileEntry(filename) {
 function scanDir(dir, options) {
     var fileMap = {};
 
-    console.log(`Scanning ${dir}...`);
+    console.log(`Scanning ${chalk.bold(dir)}...`);
 
     var filenames = fs.readdirSync(dir);
 
     var count = 0;
     filenames.forEach(filename => {
-        var fileEntry = createFileEntry(filename);
+        if (fs.lstatSync(path.join(dir, filename)).isFile()) {
+            var fileEntry = createFileEntry(filename);
 
-        if (options.verbose) {
-            console.log(`Found ${chalk.bold(fileEntry.filename)}.`);
+            if (options.verbose) {
+                console.log(`Found ${chalk.bold(fileEntry.filename)}.`);
+            }
+
+            if (!fileMap.hasOwnProperty(fileEntry.title)) {
+                fileMap[fileEntry.title] = [];
+                count++;
+            }
+
+            fileMap[fileEntry.title].push(fileEntry);
         }
-
-        if (!fileMap.hasOwnProperty(fileEntry.title)) {
-            fileMap[fileEntry.title] = [];
-            count++;
-        }
-
-        fileMap[fileEntry.title].push(fileEntry);
     });
 
     if (count > 0) {
