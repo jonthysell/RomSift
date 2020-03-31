@@ -1,6 +1,6 @@
 {
   "name": "romsift",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Utility for sifting through large ROM collections.",
   "bugs": {
     "url": "https://github.com/jonthysell/RomSift/issues"
