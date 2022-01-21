@@ -1,5 +1,11 @@
 # romsift #
 
+<p align="center">
+  <a href="https://www.npmjs.org/package/romsift">
+    <img src="https://img.shields.io/npm/v/romsift?color=e80441&label=romsift" alt="Current npm package version." />
+  </a>
+</p>
+
 romsift is utility for sifting through large ROM collections.
 
 It is intended to help pare down large romsets (particularly [no-intro](https://www.no-intro.org/)) to remove unwanted duplicates and make browsing the files easier.
@@ -85,6 +91,6 @@ Options:
 
 ## Errata ##
 
-TEGS is open-source under the MIT license.
+romsift is open-source under the MIT license.
 
 Copyright (c) 2020-2022 Jon Thysell
