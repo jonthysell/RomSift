@@ -19,8 +19,8 @@
     "romSift.js"
   ],
   "dependencies": {
-    "chalk": "^3.0.0",
-    "commander": "^5.0.0",
+    "chalk": "^4.0.0",
+    "commander": "^8.3.0",
     "readline-sync": "^1.4.10"
   }
 }

@@ -87,4 +87,4 @@ Options:
 
 TEGS is open-source under the MIT license.
 
-Copyright (c) 2020 Jon Thysell
+Copyright (c) 2020-2022 Jon Thysell
